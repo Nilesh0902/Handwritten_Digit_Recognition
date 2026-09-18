@@ -49,7 +49,7 @@ st.markdown(
     margin-bottom: 30px;
 }
 
-/* Info Cards */
+/* Information Cards */
 .info-card {
     border: 1px solid rgba(128, 128, 128, 0.35);
     border-radius: 12px;
@@ -103,7 +103,7 @@ st.markdown(
     font-size: 17px;
 }
 
-/* Digit Cards */
+/* Individual Digit Cards */
 .digit-card {
     border: 1px solid rgba(128, 128, 128, 0.35);
     border-radius: 12px;
@@ -148,41 +148,51 @@ st.markdown(
 )
 
 st.markdown(
-    '<div class="subtitle">CNN-powered handwritten digit recognition using the MNIST dataset</div>',
+    '<div class="subtitle">'
+    'CNN-powered handwritten digit recognition using the MNIST dataset'
+    '</div>',
     unsafe_allow_html=True
 )
 
 
 # ============================================================
-# MODEL INFORMATION
+# MODEL INFORMATION CARDS
 # ============================================================
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown(
-        '<div class="info-card"><div class="info-title">Dataset</div><div class="info-value">MNIST</div></div>',
+        '<div class="info-card">'
+        '<div class="info-title">Dataset</div>'
+        '<div class="info-value">MNIST</div>'
+        '</div>',
         unsafe_allow_html=True
     )
 
 with col2:
     st.markdown(
-        '<div class="info-card"><div class="info-title">Model</div><div class="info-value">CNN</div></div>',
+        '<div class="info-card">'
+        '<div class="info-title">Model</div>'
+        '<div class="info-value">CNN</div>'
+        '</div>',
         unsafe_allow_html=True
     )
 
 with col3:
     st.markdown(
-        '<div class="info-card"><div class="info-title">Test Accuracy</div><div class="info-value">99.28%</div></div>',
+        '<div class="info-card">'
+        '<div class="info-title">Test Accuracy</div>'
+        '<div class="info-value">99.28%</div>'
+        '</div>',
         unsafe_allow_html=True
     )
-
 
 st.write("")
 
 
 # ============================================================
-# LOAD MODEL ARCHITECTURE
+# LOAD MODEL
 # ============================================================
 
 @st.cache_resource
@@ -233,10 +243,22 @@ def load_model():
 
 try:
     model = load_model()
+
 except Exception as e:
+
     st.error("Unable to load the trained model.")
+
     st.code(str(e))
+
     st.stop()
+
+
+# ============================================================
+# CANVAS RESET CONTROL
+# ============================================================
+
+if "canvas_key" not in st.session_state:
+    st.session_state.canvas_key = 0
 
 
 # ============================================================
@@ -250,15 +272,15 @@ st.info(
     "Keep separate digits clearly spaced from each other."
 )
 
-st.markdown(
-    '<div class="drawing-title">Drawing Canvas</div>',
-    unsafe_allow_html=True
-)
-
 
 # ============================================================
 # DRAWING CANVAS
 # ============================================================
+
+st.markdown(
+    '<div class="drawing-title">Drawing Canvas</div>',
+    unsafe_allow_html=True
+)
 
 canvas_result = st_canvas(
     fill_color="rgba(0, 0, 0, 0)",
@@ -268,7 +290,7 @@ canvas_result = st_canvas(
     width=500,
     height=280,
     drawing_mode="freedraw",
-    key="digit_canvas",
+    key=f"digit_canvas_{st.session_state.canvas_key}",
     update_streamlit=True,
     return_image_data=True
 )
@@ -281,6 +303,7 @@ canvas_result = st_canvas(
 col1, col2 = st.columns(2)
 
 with col1:
+
     predict_button = st.button(
         "🔍 Predict",
         use_container_width=True,
@@ -288,6 +311,7 @@ with col1:
     )
 
 with col2:
+
     clear_button = st.button(
         "🗑️ Clear",
         use_container_width=True
@@ -299,7 +323,17 @@ with col2:
 # ============================================================
 
 if clear_button:
-    st.session_state.pop("prediction_result", None)
+
+    # Remove previous prediction
+    st.session_state.pop(
+        "prediction_result",
+        None
+    )
+
+    # Create a completely new canvas
+    st.session_state.canvas_key += 1
+
+    # Rerun application
     st.rerun()
 
 
@@ -316,57 +350,76 @@ def detect_digits(image_array):
     if image_array is None:
         return []
 
-    # Convert RGBA/RGB image to grayscale
+    # Convert image to grayscale
     if image_array.ndim == 3:
 
         if image_array.shape[2] >= 3:
+
             gray = image_array[:, :, :3].mean(axis=2)
+
         else:
+
             gray = image_array[:, :, 0]
 
     else:
+
         gray = image_array
 
     # Threshold
     binary = gray > 20
 
-    # Find columns containing white pixels
-    column_has_pixels = np.any(binary, axis=0)
+    # Find columns containing digit pixels
+    column_has_pixels = np.any(
+        binary,
+        axis=0
+    )
 
     digit_regions = []
 
     start = None
 
-    for i, has_pixel in enumerate(column_has_pixels):
+    for i, has_pixel in enumerate(
+        column_has_pixels
+    ):
 
         if has_pixel and start is None:
+
             start = i
 
         elif not has_pixel and start is not None:
 
             end = i
 
-            # Ignore very small regions/noise
+            # Ignore very small noise regions
             if end - start >= 5:
-                digit_regions.append((start, end))
+
+                digit_regions.append(
+                    (start, end)
+                )
 
             start = None
 
-    # Handle region reaching the end
+    # Handle region reaching the right edge
     if start is not None:
 
         end = len(column_has_pixels)
 
         if end - start >= 5:
-            digit_regions.append((start, end))
 
-    # Merge regions that are very close together
+            digit_regions.append(
+                (start, end)
+            )
+
+    # Merge regions that are extremely close
     merged_regions = []
 
     for region in digit_regions:
 
         if not merged_regions:
-            merged_regions.append(list(region))
+
+            merged_regions.append(
+                list(region)
+            )
 
         else:
 
@@ -375,10 +428,14 @@ def detect_digits(image_array):
             gap = region[0] - previous[1]
 
             if gap <= 5:
+
                 previous[1] = region[1]
 
             else:
-                merged_regions.append(list(region))
+
+                merged_regions.append(
+                    list(region)
+                )
 
     # Maximum 3 digits
     merged_regions = merged_regions[:3]
@@ -392,54 +449,81 @@ def detect_digits(image_array):
 
 def preprocess_digit(digit_image):
     """
-    Convert a cropped digit into MNIST-like 28x28 format.
+    Convert a cropped handwritten digit into
+    MNIST-like 28x28 format.
     """
 
     # Convert to grayscale
     if digit_image.ndim == 3:
 
-        gray = digit_image[:, :, :3].mean(axis=2)
+        gray = digit_image[:, :, :3].mean(
+            axis=2
+        )
 
     else:
+
         gray = digit_image
 
-    # Convert to binary
+    # Binary threshold
     binary = gray > 20
 
-    # Find non-zero pixels
-    rows = np.where(np.any(binary, axis=1))[0]
-    cols = np.where(np.any(binary, axis=0))[0]
+    # Find non-zero rows and columns
+    rows = np.where(
+        np.any(binary, axis=1)
+    )[0]
 
+    cols = np.where(
+        np.any(binary, axis=0)
+    )[0]
+
+    # No digit detected
     if len(rows) == 0 or len(cols) == 0:
+
         return None
 
-    # Crop to bounding box
+    # Crop around digit
     cropped = gray[
         rows.min():rows.max() + 1,
         cols.min():cols.max() + 1
     ]
 
-    # Convert to PIL
+    # Convert to PIL image
     cropped_image = Image.fromarray(
         cropped.astype(np.uint8)
     )
 
-    # Preserve aspect ratio
+    # --------------------------------------------------------
+    # Resize while preserving aspect ratio
+    # --------------------------------------------------------
+
     width, height = cropped_image.size
 
-    max_dimension = max(width, height)
+    max_dimension = max(
+        width,
+        height
+    )
 
     scale = 20 / max_dimension
 
-    new_width = max(1, int(width * scale))
-    new_height = max(1, int(height * scale))
+    new_width = max(
+        1,
+        int(width * scale)
+    )
+
+    new_height = max(
+        1,
+        int(height * scale)
+    )
 
     cropped_image = cropped_image.resize(
         (new_width, new_height),
         Image.Resampling.LANCZOS
     )
 
-    # Create 28x28 canvas
+    # --------------------------------------------------------
+    # Create 28x28 MNIST canvas
+    # --------------------------------------------------------
+
     final_image = Image.new(
         "L",
         (28, 28),
@@ -447,22 +531,38 @@ def preprocess_digit(digit_image):
     )
 
     # Center digit
-    x_offset = (28 - new_width) // 2
-    y_offset = (28 - new_height) // 2
+    x_offset = (
+        28 - new_width
+    ) // 2
+
+    y_offset = (
+        28 - new_height
+    ) // 2
 
     final_image.paste(
         cropped_image,
         (x_offset, y_offset)
     )
 
+    # --------------------------------------------------------
     # Normalize
-    image_array = np.array(final_image).astype("float32") / 255.0
+    # --------------------------------------------------------
+
+    image_array = np.array(
+        final_image
+    ).astype("float32") / 255.0
 
     # Add channel dimension
-    image_array = image_array[..., np.newaxis]
+    image_array = image_array[
+        ...,
+        np.newaxis
+    ]
 
     # Add batch dimension
-    image_array = image_array[np.newaxis, ...]
+    image_array = image_array[
+        np.newaxis,
+        ...
+    ]
 
     return image_array
 
@@ -475,30 +575,41 @@ if predict_button:
 
     if canvas_result.image_data is None:
 
-        st.warning("Please draw at least one digit first.")
+        st.warning(
+            "Please draw at least one digit first."
+        )
 
     else:
 
         image_data = canvas_result.image_data
 
-        # Detect digit regions
-        digit_regions = detect_digits(image_data)
+        # Detect digits
+        digit_regions = detect_digits(
+            image_data
+        )
 
         if len(digit_regions) == 0:
 
             st.warning(
-                "No digit was detected. Please draw a clearer digit."
+                "No digit was detected. "
+                "Please draw a clearer digit."
             )
 
         else:
 
             predictions = []
+
             processed_images = []
 
+            # Process each detected digit
             for start_x, end_x in digit_regions:
 
-                # Crop digit region
-                digit_crop = image_data[:, start_x:end_x, :]
+                # Crop digit
+                digit_crop = image_data[
+                    :,
+                    start_x:end_x,
+                    :
+                ]
 
                 # Preprocess
                 processed_digit = preprocess_digit(
@@ -508,33 +619,43 @@ if predict_button:
                 if processed_digit is None:
                     continue
 
-                # Predict
+                # CNN prediction
                 probabilities = model.predict(
                     processed_digit,
                     verbose=0
                 )[0]
 
+                # Predicted digit
                 predicted_digit = int(
                     np.argmax(probabilities)
                 )
 
+                # Confidence
                 confidence = float(
                     np.max(probabilities)
                 )
 
-                predictions.append({
-                    "digit": predicted_digit,
-                    "confidence": confidence,
-                    "probabilities": probabilities
-                })
-
-                processed_images.append(
-                    processed_digit[0, :, :, 0]
+                predictions.append(
+                    {
+                        "digit": predicted_digit,
+                        "confidence": confidence,
+                        "probabilities": probabilities
+                    }
                 )
 
-            # ====================================================
-            # STORE RESULTS
-            # ====================================================
+                # Store processed image
+                processed_images.append(
+                    processed_digit[
+                        0,
+                        :,
+                        :,
+                        0
+                    ]
+                )
+
+            # =================================================
+            # STORE RESULT
+            # =================================================
 
             if len(predictions) > 0:
 
@@ -543,16 +664,30 @@ if predict_button:
                     for item in predictions
                 )
 
-                average_confidence = np.mean([
-                    item["confidence"]
-                    for item in predictions
-                ])
+                average_confidence = float(
+                    np.mean(
+                        [
+                            item["confidence"]
+                            for item in predictions
+                        ]
+                    )
+                )
 
-                st.session_state["prediction_result"] = {
-                    "predicted_number": predicted_number,
-                    "average_confidence": average_confidence,
-                    "predictions": predictions,
-                    "processed_images": processed_images
+                st.session_state[
+                    "prediction_result"
+                ] = {
+
+                    "predicted_number":
+                        predicted_number,
+
+                    "average_confidence":
+                        average_confidence,
+
+                    "predictions":
+                        predictions,
+
+                    "processed_images":
+                        processed_images
                 }
 
 
@@ -562,12 +697,25 @@ if predict_button:
 
 if "prediction_result" in st.session_state:
 
-    result = st.session_state["prediction_result"]
+    result = st.session_state[
+        "prediction_result"
+    ]
 
-    predicted_number = result["predicted_number"]
-    average_confidence = result["average_confidence"]
-    predictions = result["predictions"]
-    processed_images = result["processed_images"]
+    predicted_number = result[
+        "predicted_number"
+    ]
+
+    average_confidence = result[
+        "average_confidence"
+    ]
+
+    predictions = result[
+        "predictions"
+    ]
+
+    processed_images = result[
+        "processed_images"
+    ]
 
     st.markdown("---")
 
@@ -576,8 +724,8 @@ if "prediction_result" in st.session_state:
     )
 
     # IMPORTANT:
-    # HTML starts at column 1 to prevent Streamlit
-    # from interpreting it as a code block.
+    # HTML starts directly after the triple quote.
+    # This prevents Streamlit from rendering it as code.
 
     prediction_html = f"""<div class="prediction-box">
 <div class="prediction-label">Recognized Number</div>
@@ -599,14 +747,23 @@ if "prediction_result" in st.session_state:
         "### 🔍 Individual Digit Predictions"
     )
 
-    digit_columns = st.columns(len(predictions))
+    digit_columns = st.columns(
+        len(predictions)
+    )
 
-    for index, prediction in enumerate(predictions):
+    for index, prediction in enumerate(
+        predictions
+    ):
 
         with digit_columns[index]:
 
-            digit = prediction["digit"]
-            confidence = prediction["confidence"]
+            digit = prediction[
+                "digit"
+            ]
+
+            confidence = prediction[
+                "confidence"
+            ]
 
             digit_html = f"""<div class="digit-card">
 <div class="info-title">Digit {index + 1}</div>
@@ -621,14 +778,20 @@ if "prediction_result" in st.session_state:
 
 
     # ========================================================
-    # PROCESSED IMAGES
+    # PROCESSED DIGIT IMAGES
     # ========================================================
 
-    with st.expander("🖼️ View Processed Digit Images"):
+    with st.expander(
+        "🖼️ View Processed Digit Images"
+    ):
 
-        image_columns = st.columns(len(processed_images))
+        image_columns = st.columns(
+            len(processed_images)
+        )
 
-        for index, processed_image in enumerate(processed_images):
+        for index, processed_image in enumerate(
+            processed_images
+        ):
 
             with image_columns[index]:
 
@@ -643,37 +806,52 @@ if "prediction_result" in st.session_state:
     # PROBABILITY DISTRIBUTION
     # ========================================================
 
-    with st.expander("📊 View Prediction Probabilities"):
+    with st.expander(
+        "📊 View Prediction Probabilities"
+    ):
 
-        for index, prediction in enumerate(predictions):
+        for index, prediction in enumerate(
+            predictions
+        ):
 
             st.markdown(
-                f"**Digit {index + 1}: {prediction['digit']}**"
+                f"**Digit {index + 1}: "
+                f"{prediction['digit']}**"
             )
 
-            probabilities = prediction["probabilities"]
+            probabilities = prediction[
+                "probabilities"
+            ]
 
-            for digit_value, probability in enumerate(probabilities):
+            for digit_value, probability in enumerate(
+                probabilities
+            ):
 
                 st.progress(
                     float(probability),
-                    text=f"{digit_value}: {probability * 100:.2f}%"
+                    text=(
+                        f"{digit_value}: "
+                        f"{probability * 100:.2f}%"
+                    )
                 )
 
 
 # ============================================================
-# ABOUT MODEL
+# ABOUT THE MODEL
 # ============================================================
 
 st.markdown("---")
 
-with st.expander("ℹ️ About This Model"):
+with st.expander(
+    "ℹ️ About This Model"
+):
 
     st.markdown(
         """
-### CNN Architecture
+### 🧠 CNN Architecture
 
-This project uses a Convolutional Neural Network trained on the MNIST dataset.
+This project uses a Convolutional Neural Network
+trained on the MNIST handwritten digit dataset.
 
 **Architecture:**
 
@@ -687,7 +865,7 @@ This project uses a Convolutional Neural Network trained on the MNIST dataset.
 - Dropout: 0.5
 - Output: 10 neurons, Softmax
 
-### Training
+### 📚 Training
 
 - Dataset: MNIST
 - Training images: 60,000
@@ -695,14 +873,25 @@ This project uses a Convolutional Neural Network trained on the MNIST dataset.
 - Epochs: 10
 - Batch size: 128
 - Optimizer: Adam
-- Loss function: Sparse Categorical Crossentropy
+- Loss Function: Sparse Categorical Crossentropy
 - Test Accuracy: **99.28%**
 
-### Application
+### ✍️ Application
 
-The application allows users to draw **1 to 3 handwritten digits**.
-The system segments the digits, preprocesses them into MNIST-like
-28 × 28 images, and uses the trained CNN to predict each digit.
+The application allows the user to draw
+**1 to 3 handwritten digits**.
+
+The system:
+
+1. Detects the digit regions.
+2. Separates individual digits.
+3. Crops the digits.
+4. Resizes them while maintaining aspect ratio.
+5. Converts them into 28 × 28 images.
+6. Normalizes the pixel values.
+7. Sends them to the CNN.
+8. Predicts each digit.
+9. Displays the final number and confidence.
 """
     )
 
